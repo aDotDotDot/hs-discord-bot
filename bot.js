@@ -11,102 +11,74 @@ logger.add(logger.transports.Console, {
 logger.level = 'debug';
 // Initialize Discord Bot
 var bot = new Discord.Client({
-   token: auth.token,
-   autorun: true
+    token: auth.token,
+    autorun: true
 });
 var decode_hs_code = function(hscode){
-   return deckstrings.decode(hscode);
+    return deckstrings.decode(hscode);
 };
-var create_embed = function(txt){
-   return {
-    color: 6826080,
-    footer: {
-      text: txt 
-    },
-    thumbnail:
-    {
-      url: ''
-    },
-    title: '',
-    url: ''
-    }
-   };
-var get_json_cards = function(lang){
-      lang = typeof lang !== 'undefined' ? lang : 'frFR';
-      request('https://api.hearthstonejson.com/v1/latest/'+lang+'/cards.json', function (error, response, body) {
-//      console.log('error:', error); // Print the error if one occurred
-//      console.log('statusCode:', response && response.statusCode); // Print the response status code if a response was received
-//      console.log('body:', body); // Print the HTML for the Google homepage.
-        var byDbfId = {};
-        for(var i in body){
-	    byDbfId[body[i]['dbfId']] = body[i];
-	}
-        return byDbfId;
+
+var send_bot_msg = function(channelID, msg, embed){
+    bot.sendMessage({
+        to: channelID,
+        message: msg,
+        embed: embed
     });
 };
-var send_bot_msg = function(channelID, msg, embed){
-   bot.sendMessage({
-       to: channelID,
-       message: msg,
-       embed: embed
-   });
-};
 function compare_cards(aObj,bObj){
-  var a = aObj['card'];
-  var b = bObj['card'];
-  if (parseInt(a['cost']) < parseInt(b['cost']))
-    return -1;
-  if (parseInt(a['cost']) > parseInt(b['cost']))
-    return 1;
-  //at this point, cost is the same, let's try by name
-  if (a['name'] < b['name'])
-    return -1
-  if (a['name'] > b['name'])
-    return 1
-  return 0;
+    var a = aObj['card'];
+    var b = bObj['card'];
+    if (parseInt(a['cost']) < parseInt(b['cost']))
+        return -1;
+    if (parseInt(a['cost']) > parseInt(b['cost']))
+        return 1;
+    //at this point, cost is the same, let's try by name
+    if (a['name'] < b['name'])
+        return -1
+    if (a['name'] > b['name'])
+        return 1
+    return 0;
 }
 
 var analyse_deck = function(deck){
-   var cost = {"LEGENDARY":0, "EPIC":0, "RARE":0,"COMMON":0}
-   for( var i in deck){
-      cost[deck[i]['card']['rarity']]+=1;
-   }
-   return cost;
+    var cost = {"LEGENDARY":0, "EPIC":0, "RARE":0,"COMMON":0}
+    for( var i in deck){
+        cost[deck[i]['card']['rarity']]+=1;
+    }
+    return cost;
 };
 
 var format_deck = function(deck, hearthpwnUrl){
 //deck = list of object card + count
-   deck = deck.sort(compare_cards);
-   
-   var embedtxt = "";
-   for(var i in deck){
-      embedtxt+= deck[i]['count'] + "\* **" + deck[i]['card']['name'] + "** (" +deck[i]['card']['cost'] + ")\n";
-   }
-   cost = analyse_deck(deck);
-   return {
-    color: 6826080,
-    footer: {
-      text: ""
-    },
-    fields: [{
-        name: "**__Cartes__**",
-        value: embedtxt
-      },
-      {
-        name: "**__Coût à Craft__**",
-        value: 1600*cost["LEGENDARY"]+400*cost["EPIC"]+100*cost["RARE"]+40*cost["COMMON"]
-      },
-      {
-        name: "**__Visualiser__**",
-        value: "Clique [ici]("+hearthpwnUrl+") !"
-      }
-    ],
-    title: 'Description du deck',
-    url: ''
+    deck = deck.sort(compare_cards);
+
+    var embedtxt = "";
+    for(var i in deck){
+        embedtxt+= deck[i]['count'] + "\* **" + deck[i]['card']['name'] + "** (" +deck[i]['card']['cost'] + ")\n";
+    }
+    cost = analyse_deck(deck);
+    return {
+        color: 6826080,
+        footer: {
+            text: ""
+        },
+        fields: [{
+            name: "**__Cartes__**",
+            value: embedtxt
+        },
+            {
+                name: "**__Coût à Craft__**",
+                value: 1600*cost["LEGENDARY"]+400*cost["EPIC"]+100*cost["RARE"]+40*cost["COMMON"]
+            },
+            {
+                name: "**__Visualiser__**",
+                value: "Clique [ici]("+hearthpwnUrl+") !"
+            }
+        ],
+        title: 'Description du deck',
+        url: ''
     }
 };
-//var cards = get_json_cards('frFR');
-//console.log(cards);
 bot.on('ready', function (evt) {
     logger.info('Connected');
     logger.info('Logged in as: ');
@@ -126,50 +98,36 @@ bot.on('message', function (user, userID, channelID, message, evt) {
                     to: channelID,
                     message: 'Pong!'
                 });
-            break;
+                break;
             case 'decode':
-		try{
-                	var deck_obj = decode_hs_code(args[0]);
-		}catch(errorC){
-			send_bot_msg(channelID, 'Deck Invalide');
-		}
-		if(deck_obj){
-		request('https://api.hearthstonejson.com/v1/latest/frFR/cards.json', {json: true}, function(error, response, body) {
-			if(error) { console.log(error); }
-			var byDbfId = {};
-		        for(var i in body){
-		            byDbfId[body[i]['dbfId']] = body[i];
-		        }
-			//console.log(byDbfId);
-			var deck = decode_hs_code(args[0]);
-			var deck_cards = [];
-	                for(var card in deck['cards']){
-//	                    console.log(byDbfId[deck['cards'][card][0]]);
-			    deck_cards.push({card: byDbfId[deck['cards'][card][0]], count:deck['cards'][card][1]})
-	                }
-//			console.log(deck_cards);
-                        request('https://www.hearthpwn.com/ajax/getdeckstring?deckString='+args[0], {json: true}, function(err, response2, body2) {
-                                if(err) { console.log(err); }
-				var hearthpwnUrl = "https://www.hearthpwn.com"+body2['RedirectUrl'];
-				//send_bot_msg(channelID, JSON.stringify(decode_hs_code(args[0])), format_deck(deck_cards, hearthpwnUrl));
-				send_bot_msg(channelID, "Deck identifié, voilà mon analyse : ", format_deck(deck_cards, hearthpwnUrl));
-			});
-			
-	                //send_bot_msg(channelID, JSON.stringify(decode_hs_code(args[0])), format_deck(deck_cards,args[0]));
-		  });
+                try{
+                    var deck_obj = decode_hs_code(args[0]);
+                }catch(errorC){
+                    send_bot_msg(channelID, 'Deck Invalide');
                 }
-//		try{
-//                    var cards = get_json_cards('frFR');
-//		    var deck = decode_hs_code(args[0]);
-//		    for(var card in deck['cards']){
-//			console.log(cards[deck['cards'][card][0]]);
-//		    }
-//                    send_bot_msg(channelID, JSON.stringify(decode_hs_code(args[0])));
-//		}catch(error){
-//		    send_bot_msg(channelID, 'Deck Invalide');
-//		}
-            break;
+                if(deck_obj){
+                    request('https://api.hearthstonejson.com/v1/latest/frFR/cards.json', {json: true}, function(error, response, body) {
+                        if(error) { console.log(error); }
+                        var byDbfId = {};
+                        for(var i in body){
+                            byDbfId[body[i]['dbfId']] = body[i];
+                        }
+                        //console.log(byDbfId);
+                        var deck = decode_hs_code(args[0]);
+                        var deck_cards = [];
+                        for(var card in deck['cards']){
+                            deck_cards.push({card: byDbfId[deck['cards'][card][0]], count:deck['cards'][card][1]})
+                        }
+                        request('https://www.hearthpwn.com/ajax/getdeckstring?deckString='+args[0], {json: true}, function(err, response2, body2) {
+                            if(err) { console.log(err); }
+                            var hearthpwnUrl = "https://www.hearthpwn.com"+body2['RedirectUrl'];
+                            //send_bot_msg(channelID, JSON.stringify(decode_hs_code(args[0])), format_deck(deck_cards, hearthpwnUrl));
+                            send_bot_msg(channelID, "Deck identifié, voilà mon analyse : ", format_deck(deck_cards, hearthpwnUrl));
+                        });
+                    });
+                }
+                break;
             // Just add any case commands if you want to..
-         }
-     }
+        }
+    }
 });
